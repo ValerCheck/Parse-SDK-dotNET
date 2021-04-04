@@ -9,6 +9,7 @@ using Parse.Abstractions.Infrastructure;
 using Parse.Abstractions.Infrastructure.Execution;
 using Parse.Abstractions.Platform.Installations;
 using Parse.Abstractions.Platform.Users;
+using Parse.Infrastructure.Extensions;
 using Parse.Infrastructure.Utilities;
 
 namespace Parse.Infrastructure.Execution
@@ -52,7 +53,8 @@ namespace Parse.Infrastructure.Execution
         /// <param name="downloadProgress">An <see cref="IProgress{ParseDownloadProgressEventArgs}"/> instance to push download progress data to.</param>
         /// <param name="cancellationToken">An asynchronous operation cancellation token that dictates if and when the operation should be cancelled.</param>
         /// <returns></returns>
-        public Task<Tuple<HttpStatusCode, IDictionary<string, object>>> RunCommandAsync(ParseCommand command, IProgress<IDataTransferLevel> uploadProgress = null, IProgress<IDataTransferLevel> downloadProgress = null, CancellationToken cancellationToken = default) => PrepareCommand(command).ContinueWith(commandTask => GetWebClient().ExecuteAsync(commandTask.Result, uploadProgress, downloadProgress, cancellationToken).OnSuccess(task =>
+        public Task<Tuple<HttpStatusCode, IDictionary<string, object>>> RunCommandAsync(ParseCommand command, IProgress<IDataTransferLevel> uploadProgress = null, IProgress<IDataTransferLevel> downloadProgress = null, CancellationToken cancellationToken = default) =>
+            PrepareCommand(command).ContinueWith(commandTask => GetWebClient().ExecuteAsync(commandTask.Result, uploadProgress, downloadProgress, cancellationToken).OnSuccess(task =>
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -102,7 +104,7 @@ namespace Parse.Infrastructure.Execution
             {
                 lock (newCommand.Headers)
                 {
-                    newCommand.Headers.Add(new KeyValuePair<string, string>("X-Parse-Installation-Id", task.Result.ToString()));
+                    newCommand.AddHeader("X-Parse-Installation-Id", task.Result.ToString());
                 }
 
                 return newCommand;
@@ -113,8 +115,9 @@ namespace Parse.Infrastructure.Execution
 
             lock (newCommand.Headers)
             {
-                newCommand.Headers.Add(new KeyValuePair<string, string>("X-Parse-Application-Id", ServerConnectionData.ApplicationID));
-                newCommand.Headers.Add(new KeyValuePair<string, string>("X-Parse-Client-Version", ParseClient.Version.ToString()));
+                newCommand
+                    .AddHeader("X-Parse-Application-Id", ServerConnectionData.ApplicationID)
+                    .AddHeader("X-Parse-Client-Version", ParseClient.Version);
 
                 if (ServerConnectionData.Headers != null)
                 {
@@ -124,33 +127,23 @@ namespace Parse.Infrastructure.Execution
                     }
                 }
 
-                if (!String.IsNullOrEmpty(MetadataController.HostManifestData.Version))
-                {
-                    newCommand.Headers.Add(new KeyValuePair<string, string>("X-Parse-App-Build-Version", MetadataController.HostManifestData.Version));
-                }
-
-                if (!String.IsNullOrEmpty(MetadataController.HostManifestData.ShortVersion))
-                {
-                    newCommand.Headers.Add(new KeyValuePair<string, string>("X-Parse-App-Display-Version", MetadataController.HostManifestData.ShortVersion));
-                }
-
-                if (!String.IsNullOrEmpty(MetadataController.EnvironmentData.OSVersion))
-                {
-                    newCommand.Headers.Add(new KeyValuePair<string, string>("X-Parse-OS-Version", MetadataController.EnvironmentData.OSVersion));
-                }
+                newCommand
+                    .AddHeaderWithValidation("X-Parse-App-Build-Version", MetadataController.HostManifestData.Version)
+                    .AddHeaderWithValidation("X-Parse-App-Display-Version", MetadataController.HostManifestData.ShortVersion)
+                    .AddHeaderWithValidation("X-Parse-OS-Version", MetadataController.EnvironmentData.OSVersion);
 
                 if (!String.IsNullOrEmpty(ServerConnectionData.MasterKey))
                 {
-                    newCommand.Headers.Add(new KeyValuePair<string, string>("X-Parse-Master-Key", ServerConnectionData.MasterKey));
+                    newCommand.AddHeader("X-Parse-Master-Key", ServerConnectionData.MasterKey);
                 }
                 else
                 {
-                    newCommand.Headers.Add(new KeyValuePair<string, string>("X-Parse-Windows-Key", ServerConnectionData.Key));
+                    newCommand.AddHeader("X-Parse-Windows-Key", ServerConnectionData.Key);
                 }
 
                 if (UserController.Value.RevocableSessionEnabled)
                 {
-                    newCommand.Headers.Add(new KeyValuePair<string, string>("X-Parse-Revocable-Session", "1"));
+                    newCommand.AddHeader("X-Parse-Revocable-Session", "1");
                 }
             }
 

@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using Parse.Infrastructure.Extensions;
 using Parse.Infrastructure.Utilities;
 
 namespace Parse.Infrastructure.Execution
@@ -32,15 +33,8 @@ namespace Parse.Infrastructure.Execution
             Data = stream;
             Headers = new List<KeyValuePair<string, string>>(headers ?? Enumerable.Empty<KeyValuePair<string, string>>());
 
-            if (!String.IsNullOrEmpty(sessionToken))
-            {
-                Headers.Add(new KeyValuePair<string, string>("X-Parse-Session-Token", sessionToken));
-            }
-
-            if (!String.IsNullOrEmpty(contentType))
-            {
-                Headers.Add(new KeyValuePair<string, string>("Content-Type", contentType));
-            }
+            this.AddHeaderWithValidation("X-Parse-Session-Token", sessionToken);
+            this.AddHeaderWithValidation("Content-Type", contentType);
         }
 
         public ParseCommand(ParseCommand other)
